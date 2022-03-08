@@ -7,6 +7,7 @@ use nannou::{
 
 use crate::utils::map_rng_range;
 
+#[derive(Clone)]
 pub struct RustPatch {
     position: Point2,
     size: f32,
@@ -14,11 +15,10 @@ pub struct RustPatch {
     // ellipse: nannou::geom::ellipse::Circumference,
     points: Vec<Vec2>,
     noise_z: f64,
-    colour: Hsla,
 }
 
 impl RustPatch {
-    pub fn new_rand<T>(rng: &mut T, window_rect: Rect, max_size: f32, colour: Hsla) -> Self
+    pub fn new_rand<T>(rng: &mut T, window_rect: Rect, max_size: f32) -> Self
     where
         T: RngCore,
     {
@@ -27,11 +27,12 @@ impl RustPatch {
             map_rng_range(rng.next_u32(), window_rect.bottom(), window_rect.top()),
         );
 
-        let ellipse: Vec<Vec2> = geom::Ellipse::new(geom::Rect::from_wh(vec2(1.0, 1.0)), window_rect.right())
-            .circumference()
-            .into_iter()
-            .map(|[x, y]| vec2(x, y))
-            .collect();
+        let ellipse: Vec<Vec2> =
+            geom::Ellipse::new(geom::Rect::from_wh(vec2(1.0, 1.0)), window_rect.right())
+                .circumference()
+                .into_iter()
+                .map(|[x, y]| vec2(x, y))
+                .collect();
 
         let noise_z = map_rng_range(rng.next_u32(), 0.0, 100.0);
 
@@ -42,19 +43,13 @@ impl RustPatch {
             // ellipse,
             points: ellipse,
             noise_z,
-            colour
         }
     }
 
     pub fn update(&mut self, perlin: Perlin, frequency: f32, amplitude: f32) {
-        self.noise_z += 0.002;
+        self.noise_z += 0.003;
 
-        let noise_val = 0.5
-            + perlin.get([
-                self.x() as f64,
-                self.y() as f64,
-                100.0 as f64,
-            ]) as f32;
+        let noise_val = 0.5 + perlin.get([self.x() as f64, self.y() as f64, 100.0 as f64]) as f32;
 
         let amplitude = amplitude + (amplitude * noise_val);
 
@@ -67,7 +62,7 @@ impl RustPatch {
             let noise_point = [
                 (x * frequency) as f64,
                 (y * frequency) as f64,
-                (self.noise_z + (xx + yy) as f64) * frequency  as f64,
+                (self.noise_z + (xx + yy) as f64) * frequency as f64,
             ];
             let variance = (perlin.get(noise_point) as f32) * amplitude / 10.0;
 
@@ -97,12 +92,14 @@ impl RustPatch {
         self.size
     }
 
-    pub fn draw(&self, draw: &Draw) {
-        draw.x_y(self.x(), self.y())
-            .scale(self.size)
-            .polygon()
-            .color(self.colour)
-            .points(self.points.clone());
+    pub fn draw(&self, draw: &Draw, colours: &[Hsla]) {
+        for (i, colour) in colours.iter().enumerate() {
+            draw.x_y(self.x(), self.y())
+                .scale(self.size / (i as f32 + 1.0))
+                .polygon()
+                .color(*colour)
+                .points(self.points.clone());
+        }
     }
 }
 // ---------------
