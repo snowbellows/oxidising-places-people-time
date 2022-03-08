@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 nannou = "0.17"
+rand_chacha = "0.3.1"
+lazy_static = "1.4.0"

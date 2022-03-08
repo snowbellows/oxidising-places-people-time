@@ -1,10 +1,44 @@
-use nannou::prelude::*;
-use oxidising_places_people_time::skyline::{draw_skyline, get_skyline_texture};
+#[macro_use]
+extern crate lazy_static; // ADDED
+use nannou::{
+    noise::{Perlin, Seedable}, // ADDED
+    prelude::*,
+    rand::SeedableRng, // ADDED
+};
+// ---- ADDED ----
+use oxidising_places_people_time::{
+    rust_patches::RustPatch,
+    skyline::{draw_skyline, get_skyline_texture},
+};
+use rand_chacha::ChaCha8Rng;
+
+const RNG_SEED: u32 = 3452392;
+const START_NUM_RUST_PATCHES: usize = 4;
+const MAX_NUM_RUST_PATCHES: usize = 48;
+const FREQUENCY: f32 = 2.0;
+const AMPLITUDE: f32 = 0.006;
+
+const ORANGE_SIZE: f32 = 100.0;
+const RED_SIZE: f32 = 50.0;
+const DARK_BROWN_SIZE: f32 = 20.0;
+
+lazy_static! {
+    static ref RED: Hsla = hsla(18.0 / 360.0, 0.83, 0.53, 0.5);
+    static ref ORANGE: Hsla = hsla(18.0 / 360.0, 0.63, 0.53, 0.2);
+    static ref DARK_BROWN: Hsla = hsla(0.0, 0.74, 0.08, 0.8);
+}
+
+// ---------------
 
 struct Model {
     window_id: WindowId,
     fullscreen: bool,
     skyline_texture: wgpu::Texture,
+    // ---- ADDED ----
+    rust_patches: Vec<RustPatch>,
+    perlin: Perlin,
+    rng: ChaCha8Rng,
+    // ---------------
 }
 
 fn main() {
@@ -21,10 +55,27 @@ fn model(app: &App) -> Model {
 
     let skyline_texture = get_skyline_texture(app);
 
+    // ---- ADDED ----
+    let mut rng = ChaCha8Rng::seed_from_u64(RNG_SEED as u64);
+
+    let window_rect = app.window(window_id).unwrap().rect();
+
+    let rust_patches = (0..START_NUM_RUST_PATCHES)
+        .map(|_| RustPatch::new_rand(&mut rng, window_rect, 50.0, *RED))
+        .collect();
+
+    let perlin = Perlin::new().set_seed(RNG_SEED);
+    // ---------------
+
     Model {
         window_id,
         fullscreen: false,
         skyline_texture,
+        // ---- ADDED ----
+        rust_patches,
+        perlin,
+        rng,
+        // ---------------
     }
 }
 
@@ -40,12 +91,46 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
     }
 }
 
-fn update(_app: &App, _model: &mut Model, _update: Update) {}
+// ---- ADDED ----
+fn update(app: &App, model: &mut Model, _update: Update) {
+    for patch in &mut model.rust_patches {
+        patch.update(model.perlin, FREQUENCY, AMPLITUDE);
+    }
+
+    if app.elapsed_frames() % 120 == 0 && model.rust_patches.len() < MAX_NUM_RUST_PATCHES {
+        let patch = RustPatch::new_rand(
+            &mut model.rng,
+            app.window(model.window_id).unwrap().rect(),
+            50.0,
+            *RED,
+        );
+        model.rust_patches.push(patch);
+    }
+
+    model.rust_patches.len();
+}
+// ---------------
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
 
+    // ---- ADDED ----
+    let frame_rate = format!("FPS: {}", app.fps());
+    // println!("{}", frame_rate);
+    draw.text(&frame_rate)
+        .x_y(0.0, 0.0)
+        .font_size(14)
+        .color(BLACK);
+    // ---------------
+
     draw_skyline(app, &draw, &model.skyline_texture);
+
+    // ---- ADDED ----
+    for patch in &model.rust_patches {
+        patch.draw(&draw)
+    }
+    // ---------------
+
     draw.to_frame(app, &frame).unwrap();
 }
