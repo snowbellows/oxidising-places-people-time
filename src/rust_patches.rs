@@ -12,9 +12,9 @@ pub struct RustPatch {
     position: Point2,
     size: f32,
     max_size: f32,
-    // ellipse: nannou::geom::ellipse::Circumference,
     points: Vec<Vec2>,
     noise_z: f64,
+    opacity: f32,
 }
 
 impl RustPatch {
@@ -28,7 +28,7 @@ impl RustPatch {
         );
 
         let ellipse: Vec<Vec2> =
-            geom::Ellipse::new(geom::Rect::from_wh(vec2(1.0, 1.0)), window_rect.right())
+            geom::Ellipse::new(geom::Rect::from_wh(vec2(1.0, 1.0)), max_size * 2.0)
                 .circumference()
                 .into_iter()
                 .map(|[x, y]| vec2(x, y))
@@ -40,16 +40,16 @@ impl RustPatch {
             position,
             size: 1.0,
             max_size,
-            // ellipse,
             points: ellipse,
             noise_z,
+            opacity: 1.0,
         }
     }
 
     pub fn update(&mut self, perlin: Perlin, frequency: f32, amplitude: f32) {
         self.noise_z += 0.003;
 
-        let noise_val = 0.5 + perlin.get([self.x() as f64, self.y() as f64, 100.0 as f64]) as f32;
+        let noise_val = 0.5 + perlin.get([self.x() as f64, self.y() as f64, 100.0]) as f32;
 
         let amplitude = amplitude + (amplitude * noise_val);
 
@@ -76,8 +76,16 @@ impl RustPatch {
             // Grow to full size over two minutes
             self.size() + self.max_size / (60.0 * 60.0 * 2.0)
         } else {
+            // Start fading out
+            self.opacity -= 0.002;
             self.max_size
-        }
+        };
+
+        // After fading out reset
+        if self.opacity <= 0.0 {
+            self.opacity = 1.0;
+            self.size = 1.0;
+        };
     }
 
     pub fn x(&self) -> f32 {
@@ -94,10 +102,16 @@ impl RustPatch {
 
     pub fn draw(&self, draw: &Draw, colours: &[Hsla]) {
         for (i, colour) in colours.iter().enumerate() {
+            let faded_colour = hsla(
+                colour.hue.to_positive_degrees() / 360.0,
+                colour.saturation,
+                colour.lightness,
+                colour.alpha * self.opacity,
+            );
             draw.x_y(self.x(), self.y())
                 .scale(self.size / (i as f32 + 1.0))
                 .polygon()
-                .color(*colour)
+                .color(faded_colour)
                 .points(self.points.clone());
         }
     }

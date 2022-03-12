@@ -1,12 +1,12 @@
 #[macro_use]
-extern crate lazy_static;
+extern crate lazy_static; // ADDED
 
-// ADDED
 use nannou::{
     noise::{Perlin, Seedable}, // ADDED
     prelude::*,
     rand::SeedableRng, // ADDED
 };
+
 // ---- ADDED ----
 use oxidising_places_people_time::{
     rust_patches::RustPatch,
@@ -18,8 +18,8 @@ const RNG_SEED: u32 = 3452392;
 const FREQUENCY: f32 = 2.0;
 const AMPLITUDE: f32 = 0.006;
 
-const START_NUM_RUST_PATCHES: usize = 4;
-const MAX_NUM_RUST_PATCHES: usize = 48;
+const START_NUM_RUST_PATCHES: usize = 1;
+const MAX_NUM_RUST_PATCHES: usize = 56;
 const PATCH_SIZE: f32 = 200.0;
 
 lazy_static! {
@@ -116,15 +116,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
-
-    // // ---- ADDED ----
-    // let frame_rate = format!("FPS: {}", app.fps());
-    // // println!("{}", frame_rate);
-    // draw.text(&frame_rate)
-    //     .x_y(0.0, 0.0)
-    //     .font_size(14)
-    //     .color(BLACK);
-    // // ---------------
 
     draw_skyline(app, &draw, &model.skyline_texture);
 
