@@ -1,13 +1,12 @@
 #[macro_use]
-extern crate lazy_static; // ADDED
+extern crate lazy_static;
 
 use nannou::{
-    noise::{Perlin, Seedable}, // ADDED
+    noise::{Perlin, Seedable},
     prelude::*,
-    rand::SeedableRng, // ADDED
+    rand::SeedableRng,
 };
 
-// ---- ADDED ----
 use oxidising_places_people_time::{
     rust_patches::RustPatch,
     skyline::{draw_skyline, get_skyline_texture},
@@ -56,7 +55,6 @@ fn model(app: &App) -> Model {
 
     let skyline_texture = get_skyline_texture(app);
 
-    // ---- ADDED ----
     let mut rng = ChaCha8Rng::seed_from_u64(RNG_SEED as u64);
 
     let window_rect = app.window(window_id).unwrap().rect();
@@ -68,17 +66,14 @@ fn model(app: &App) -> Model {
     }
 
     let perlin = Perlin::new().set_seed(RNG_SEED);
-    // ---------------
 
     Model {
         window_id,
         fullscreen: false,
         skyline_texture,
-        // ---- ADDED ----
         rust_patches,
         perlin,
         rng,
-        // ---------------
     }
 }
 
@@ -94,7 +89,6 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
     }
 }
 
-// ---- ADDED ----
 fn update(app: &App, model: &mut Model, _update: Update) {
     for patch in &mut model.rust_patches {
         patch.update(model.perlin, FREQUENCY, AMPLITUDE);
@@ -111,7 +105,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
     model.rust_patches.len();
 }
-// ---------------
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
@@ -119,11 +112,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw_skyline(app, &draw, &model.skyline_texture);
 
-    // ---- ADDED ----
     for patch in &model.rust_patches {
         patch.draw(&draw, COLOURS.as_slice())
     }
-    // ---------------
 
     draw.to_frame(app, &frame).unwrap();
 }

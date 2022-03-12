@@ -1,4 +1,3 @@
-// ---- ADDED ----
 use nannou::{
     noise::{NoiseFn, Perlin},
     prelude::*,
@@ -116,4 +115,3 @@ impl RustPatch {
         }
     }
 }
-// ---------------
