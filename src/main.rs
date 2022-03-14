@@ -6,7 +6,7 @@ use nannou::{
     prelude::*,
     rand::SeedableRng,
 };
-
+use opencv::{prelude::*, videoio}; // ADDED
 use oxidising_places_people_time::{
     rust_patches::RustPatch,
     skyline::{draw_skyline, get_skyline_texture},
@@ -28,16 +28,17 @@ lazy_static! {
     static ref COLOURS: [Hsla; 3] = [*ORANGE, *RED, *DARK_BROWN];
 }
 
-// ---------------
 
 struct Model {
     window_id: WindowId,
     fullscreen: bool,
     skyline_texture: wgpu::Texture,
-    // ---- ADDED ----
     rust_patches: Vec<RustPatch>,
     perlin: Perlin,
     rng: ChaCha8Rng,
+    // ---- ADDED ----
+    cam: videoio::VideoCapture,
+    cam_frame_mat: Mat
     // ---------------
 }
 
@@ -67,6 +68,11 @@ fn model(app: &App) -> Model {
 
     let perlin = Perlin::new().set_seed(RNG_SEED);
 
+    // ---- ADDED ----
+    let cam = videoio::VideoCapture::new(1, videoio::CAP_ANY).unwrap(); 
+    let mut cam_frame_mat = Mat::default();
+    // ---------------
+
     Model {
         window_id,
         fullscreen: false,
@@ -74,6 +80,11 @@ fn model(app: &App) -> Model {
         rust_patches,
         perlin,
         rng,
+        // ---- ADDED ----
+        cam, 
+        cam_frame_mat,
+        // ---------------
+
     }
 }
 
@@ -104,6 +115,11 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     }
 
     model.rust_patches.len();
+
+    // ---- ADDED ----
+    model.cam.read(&mut model.cam_frame_mat).unwrap();
+
+    // ---------------
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
