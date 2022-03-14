@@ -132,5 +132,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         patch.draw(&draw, COLOURS.as_slice())
     }
 
+    wgpu::Texture::load_from_image_buffer(device, queue, usage, buffer)
+
     draw.to_frame(app, &frame).unwrap();
 }
