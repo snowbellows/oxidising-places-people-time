@@ -63,7 +63,7 @@ fn model(app: &App) -> Model {
     let perlin = Perlin::new().set_seed(RNG_SEED);
 
     // ---- ADDED ----
-    let cam = WebcamCapture::new(2);
+    let cam = WebcamCapture::new(&app, 2);
     // ---------------
 
     Model {
@@ -118,8 +118,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw_texture_fullscreen(app, &draw, &model.skyline_texture);
 
-    if let Some(image_texture) = model.cam.get_texture() {
-        draw_texture_fullscreen(app, &draw, image_texture);
+    if let Some(image_textures) = model.cam.get_texture() {
+        if image_textures.len() != 0 {
+            let texture = &image_textures[0];
+            let r = Rect::from_w_h(640.0, 720.0).middle_of(app.window_rect());
+            draw.texture(texture).xy(r.xy()).wh(r.wh());
+        }
     }
 
     for patch in &model.rust_patches {
