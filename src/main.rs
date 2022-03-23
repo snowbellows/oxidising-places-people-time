@@ -6,10 +6,8 @@ use nannou::{
     prelude::*,
     rand::SeedableRng,
 };
-use opencv::{prelude::*, videoio}; // ADDED
 use oxidising_places_people_time::{
-    rust_patches::RustPatch,
-    skyline::{draw_skyline, get_skyline_texture},
+    rust_patches::RustPatch, skyline, utils::draw_texture_fullscreen, webcam::WebcamCapture,
 };
 use rand_chacha::ChaCha8Rng;
 
@@ -28,7 +26,6 @@ lazy_static! {
     static ref COLOURS: [Hsla; 3] = [*ORANGE, *RED, *DARK_BROWN];
 }
 
-
 struct Model {
     window_id: WindowId,
     fullscreen: bool,
@@ -36,10 +33,7 @@ struct Model {
     rust_patches: Vec<RustPatch>,
     perlin: Perlin,
     rng: ChaCha8Rng,
-    // ---- ADDED ----
-    cam: videoio::VideoCapture,
-    cam_frame_mat: Mat
-    // ---------------
+    cam: WebcamCapture, // ADDED
 }
 
 fn main() {
@@ -54,7 +48,7 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
 
-    let skyline_texture = get_skyline_texture(app);
+    let skyline_texture = skyline::get_skyline_texture(app);
 
     let mut rng = ChaCha8Rng::seed_from_u64(RNG_SEED as u64);
 
@@ -69,8 +63,7 @@ fn model(app: &App) -> Model {
     let perlin = Perlin::new().set_seed(RNG_SEED);
 
     // ---- ADDED ----
-    let cam = videoio::VideoCapture::new(1, videoio::CAP_ANY).unwrap(); 
-    let mut cam_frame_mat = Mat::default();
+    let cam = WebcamCapture::new(2);
     // ---------------
 
     Model {
@@ -80,11 +73,7 @@ fn model(app: &App) -> Model {
         rust_patches,
         perlin,
         rng,
-        // ---- ADDED ----
-        cam, 
-        cam_frame_mat,
-        // ---------------
-
+        cam, // ADDED
     }
 }
 
@@ -117,8 +106,9 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     model.rust_patches.len();
 
     // ---- ADDED ----
-    model.cam.read(&mut model.cam_frame_mat).unwrap();
-
+    if app.elapsed_frames() % 120 == 0 {
+        model.cam.read_image(app);
+    }
     // ---------------
 }
 
@@ -126,13 +116,16 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
 
-    draw_skyline(app, &draw, &model.skyline_texture);
+    draw_texture_fullscreen(app, &draw, &model.skyline_texture);
+
+    if let Some(image_texture) = model.cam.get_texture() {
+        draw_texture_fullscreen(app, &draw, image_texture);
+    }
 
     for patch in &model.rust_patches {
         patch.draw(&draw, COLOURS.as_slice())
     }
 
-    wgpu::Texture::load_from_image_buffer(device, queue, usage, buffer)
-
+    // let image = load_from_memory(model.cam_frame_mat.);
     draw.to_frame(app, &frame).unwrap();
 }
