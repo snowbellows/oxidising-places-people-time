@@ -7,7 +7,10 @@ use nannou::{
     rand::SeedableRng,
 };
 use oxidising_places_people_time::{
-    rust_patches::RustPatch, skyline, utils::draw_texture_fullscreen, webcam::WebcamCapture,
+    rust_patches::RustPatch,
+    skyline,
+    utils::draw_texture_fullscreen,
+    webcam::WebcamCapture, // ADDED
 };
 use rand_chacha::ChaCha8Rng;
 
@@ -116,8 +119,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
 
-    draw_texture_fullscreen(app, &draw, &model.skyline_texture);
+    draw_texture_fullscreen(app, &draw, &model.skyline_texture); // RENAMED
 
+    // ---- ADDED ----
     if let Some(image_textures) = model.cam.get_texture() {
         if image_textures.len() != 0 {
             let texture = &image_textures[0];
@@ -125,11 +129,11 @@ fn view(app: &App, model: &Model, frame: Frame) {
             draw.texture(texture).xy(r.xy()).wh(r.wh());
         }
     }
+    // ---------------
 
     for patch in &model.rust_patches {
         patch.draw(&draw, COLOURS.as_slice())
     }
 
-    // let image = load_from_memory(model.cam_frame_mat.);
     draw.to_frame(app, &frame).unwrap();
 }
