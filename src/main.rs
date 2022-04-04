@@ -7,10 +7,7 @@ use nannou::{
     rand::SeedableRng,
 };
 use oxidising_places_people_time::{
-    rust_patches::RustPatch,
-    skyline,
-    utils::draw_texture_fullscreen,
-    webcam::WebcamCapture, // ADDED
+    rust_patches::RustPatch, skyline, utils::draw_texture_fullscreen, webcam::WebcamCapture,
 };
 use rand_chacha::ChaCha8Rng;
 
@@ -36,7 +33,7 @@ struct Model {
     rust_patches: Vec<RustPatch>,
     perlin: Perlin,
     rng: ChaCha8Rng,
-    cam: WebcamCapture, // ADDED
+    cam: WebcamCapture,
 }
 
 fn main() {
@@ -65,9 +62,7 @@ fn model(app: &App) -> Model {
 
     let perlin = Perlin::new().set_seed(RNG_SEED);
 
-    // ---- ADDED ----
     let cam = WebcamCapture::new(&app, 2);
-    // ---------------
 
     Model {
         window_id,
@@ -76,7 +71,7 @@ fn model(app: &App) -> Model {
         rust_patches,
         perlin,
         rng,
-        cam, // ADDED
+        cam,
     }
 }
 
@@ -108,11 +103,9 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
     model.rust_patches.len();
 
-    // ---- ADDED ----
     if app.elapsed_frames() % 120 == 0 {
         model.cam.read_image(app);
     }
-    // ---------------
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
@@ -121,7 +114,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw_texture_fullscreen(app, &draw, &model.skyline_texture); // RENAMED
 
-    // ---- ADDED ----
     if let Some(image_textures) = model.cam.get_texture() {
         if image_textures.len() != 0 {
             let texture = &image_textures[0];
@@ -129,7 +121,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
             draw.texture(texture).xy(r.xy()).wh(r.wh());
         }
     }
-    // ---------------
 
     for patch in &model.rust_patches {
         patch.draw(&draw, COLOURS.as_slice())

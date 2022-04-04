@@ -8,7 +8,6 @@ where
     map_range(value, X::min_value(), X::max_value(), out_min, out_max)
 }
 
-// ---- ADDED ----
 pub fn draw_texture_fullscreen(app: &App, draw: &Draw, texture: &wgpu::Texture) {
     let window_id = app.window_id();
     let win_rect = app.window(window_id).unwrap().rect();
@@ -20,4 +19,3 @@ pub fn draw_texture_fullscreen(app: &App, draw: &Draw, texture: &wgpu::Texture) 
     });
     draw.polygon().points_textured(&texture, points);
 }
-// ---------------
