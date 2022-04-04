@@ -112,7 +112,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
 
-    draw_texture_fullscreen(app, &draw, &model.skyline_texture); // RENAMED
+    draw_texture_fullscreen(app, &draw, &model.skyline_texture);
 
     if let Some(image_textures) = model.cam.get_texture() {
         if image_textures.len() != 0 {

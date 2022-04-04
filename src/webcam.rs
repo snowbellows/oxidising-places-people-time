@@ -1,4 +1,3 @@
-// ---- ADDED ----
 use nannou::prelude::*;
 use opencv::{core::*, imgcodecs, imgproc, objdetect, prelude::*, videoio};
 
@@ -105,4 +104,3 @@ impl WebcamCapture {
         &self.image_textures
     }
 }
-// -------------------
