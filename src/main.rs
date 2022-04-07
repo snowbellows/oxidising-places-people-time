@@ -2,12 +2,13 @@
 extern crate lazy_static;
 
 use nannou::{
+    image,
     noise::{Perlin, Seedable},
     prelude::*,
     rand::SeedableRng,
 };
 use oxidising_places_people_time::{
-    rust_patches::RustPatch, skyline, utils::draw_texture_fullscreen, webcam::WebcamCapture,
+    grid::ImageGrid, rust_patches::RustPatch, skyline, webcam::WebcamFaceCapture,
 };
 use rand_chacha::ChaCha8Rng;
 
@@ -19,6 +20,9 @@ const START_NUM_RUST_PATCHES: usize = 1;
 const MAX_NUM_RUST_PATCHES: usize = 56;
 const PATCH_SIZE: f32 = 200.0;
 
+const CELL_SIZE: u32 = 12;
+const GRID_SCALE_FACTOR: f32 = 1.2;
+
 lazy_static! {
     static ref ORANGE: Hsla = hsla(18.0 / 360.0, 0.63, 0.53, 0.5);
     static ref RED: Hsla = hsla(358.0 / 360.0, 0.53, 0.58, 0.5);
@@ -29,11 +33,12 @@ lazy_static! {
 struct Model {
     window_id: WindowId,
     fullscreen: bool,
-    skyline_texture: wgpu::Texture,
+    image_grid: ImageGrid,
+    skyline_image: image::DynamicImage,
     rust_patches: Vec<RustPatch>,
     perlin: Perlin,
     rng: ChaCha8Rng,
-    cam: WebcamCapture,
+    cam: WebcamFaceCapture,
 }
 
 fn main() {
@@ -45,10 +50,11 @@ fn model(app: &App) -> Model {
         .new_window()
         .size(1920, 1080)
         .key_pressed(key_pressed)
+        .resized(window_resized)
         .build()
         .unwrap();
 
-    let skyline_texture = skyline::get_skyline_texture(app);
+    let skyline_image = skyline::get_skyline_image(app);
 
     let mut rng = ChaCha8Rng::seed_from_u64(RNG_SEED as u64);
 
@@ -56,23 +62,49 @@ fn model(app: &App) -> Model {
 
     let mut rust_patches: Vec<RustPatch> = Vec::with_capacity(MAX_NUM_RUST_PATCHES);
     for _ in 0..START_NUM_RUST_PATCHES {
-        let patch = RustPatch::new_rand(&mut rng, window_rect, PATCH_SIZE);
+        let patch = RustPatch::new_rand(&mut rng, &window_rect, PATCH_SIZE);
         rust_patches.push(patch);
     }
 
+    let image_grid = ImageGrid::new(&window_rect, CELL_SIZE, &skyline_image);
+
     let perlin = Perlin::new().set_seed(RNG_SEED);
 
-    let cam = WebcamCapture::new(&app, 2);
+    let cam = WebcamFaceCapture::new(app, 0);
 
     Model {
         window_id,
         fullscreen: false,
-        skyline_texture,
+        image_grid,
+        skyline_image,
         rust_patches,
         perlin,
         rng,
         cam,
     }
+}
+
+fn window_resized(app: &App, model: &mut Model, _dim: Vec2) {
+    let window_rect = app.window(app.window_id()).unwrap().rect();
+
+    model.image_grid = ImageGrid::new(&window_rect, CELL_SIZE, &model.skyline_image);
+
+    if let Some(face) = model.cam.read_image() {
+        model.image_grid.add_image_centre(
+            &face,
+            vec2(window_rect.h() * 0.66 * 0.88, window_rect.h() * 0.66),
+        )
+    }
+
+    let mut rust_patches: Vec<RustPatch> = Vec::with_capacity(MAX_NUM_RUST_PATCHES);
+    for _ in 0..START_NUM_RUST_PATCHES {
+        let patch = RustPatch::new_rand(&mut model.rng, &window_rect, PATCH_SIZE);
+        rust_patches.push(patch);
+    }
+
+    model.rust_patches = rust_patches;
+
+    
 }
 
 fn key_pressed(app: &App, model: &mut Model, key: Key) {
@@ -91,36 +123,32 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     for patch in &mut model.rust_patches {
         patch.update(model.perlin, FREQUENCY, AMPLITUDE);
     }
+    let window_rect = app.window(model.window_id).unwrap().rect();
 
     if app.elapsed_frames() % 120 == 0 && model.rust_patches.len() < MAX_NUM_RUST_PATCHES {
-        let patch = RustPatch::new_rand(
-            &mut model.rng,
-            app.window(model.window_id).unwrap().rect(),
-            PATCH_SIZE,
-        );
+        let patch = RustPatch::new_rand(&mut model.rng, &window_rect, PATCH_SIZE);
         model.rust_patches.push(patch);
     }
 
-    model.rust_patches.len();
+    // grid.add_texture();
 
     if app.elapsed_frames() % 120 == 0 {
-        model.cam.read_image(app);
+        if let Some(face) = model.cam.read_image() {
+            model.image_grid = ImageGrid::new(&window_rect, CELL_SIZE, &model.skyline_image);
+
+            model.image_grid.add_image_centre(
+                &face,
+                vec2(window_rect.h() * 0.66 * 0.88, window_rect.h() * 0.66),
+            )
+        }
     }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
-
-    draw_texture_fullscreen(app, &draw, &model.skyline_texture);
-
-    if let Some(image_textures) = model.cam.get_texture() {
-        if image_textures.len() != 0 {
-            let texture = &image_textures[0];
-            let r = Rect::from_w_h(640.0, 720.0).middle_of(app.window_rect());
-            draw.texture(texture).xy(r.xy()).wh(r.wh());
-        }
-    }
+    // let window_rect = app.window(model.window_id).unwrap().rect();
+    model.image_grid.draw(&draw, GRID_SCALE_FACTOR);
 
     for patch in &model.rust_patches {
         patch.draw(&draw, COLOURS.as_slice())

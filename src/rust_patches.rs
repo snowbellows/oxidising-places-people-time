@@ -17,7 +17,7 @@ pub struct RustPatch {
 }
 
 impl RustPatch {
-    pub fn new_rand<T>(rng: &mut T, window_rect: Rect, max_size: f32) -> Self
+    pub fn new_rand<T>(rng: &mut T, window_rect: &Rect, max_size: f32) -> Self
     where
         T: RngCore,
     {

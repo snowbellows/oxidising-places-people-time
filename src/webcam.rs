@@ -1,11 +1,11 @@
-use nannou::prelude::*;
+use nannou::{image, prelude::*};
 use opencv::{core::*, imgcodecs, imgproc, objdetect, prelude::*, videoio};
 
-pub struct WebcamCapture {
+pub struct WebcamFaceCapture {
     capture: videoio::VideoCapture,
     cam_frame_mat: Mat,
-    image_textures: Option<Vec<wgpu::Texture>>,
     lbp_face_cascade: objdetect::CascadeClassifier,
+    image_temp_path: tempfile::TempPath,
 }
 
 fn detect_faces(img: &Mat, f_cascade: &mut objdetect::CascadeClassifier) -> Vec<Mat> {
@@ -26,35 +26,40 @@ fn detect_faces(img: &Mat, f_cascade: &mut objdetect::CascadeClassifier) -> Vec<
 
     objects
         .iter()
-        .map(|rect| Mat::roi(img, rect).unwrap())
+        .filter_map(|rect| {
+            let padded_rect = rect + Size_::<i32>::new(rect.width / 2, rect.height / 2)
+                - Point_::<i32>::new(rect.width /( 2 * 2), rect.height / (2 * 2));
+
+            Mat::roi(img, padded_rect).ok()
+        })
         .collect()
 }
 
-fn pixelate(mut img: Mat) -> Mat {
-    imgproc::resize(
-        &img.clone(),
-        &mut img,
-        Size::new(16, 18),
-        0.0,
-        0.0,
-        imgproc::INTER_LINEAR,
-    )
-    .unwrap();
+// fn pixelate(mut img: Mat) -> Mat {
+//     imgproc::resize(
+//         &img.clone(),
+//         &mut img,
+//         Size::new(16, 18),
+//         0.0,
+//         0.0,
+//         imgproc::INTER_LINEAR,
+//     )
+//     .unwrap();
 
-    imgproc::resize(
-        &img.clone(),
-        &mut img,
-        Size::new(640, 720),
-        0.0,
-        0.0,
-        imgproc::INTER_NEAREST,
-    )
-    .unwrap();
+//     imgproc::resize(
+//         &img.clone(),
+//         &mut img,
+//         Size::new(640, 720),
+//         0.0,
+//         0.0,
+//         imgproc::INTER_NEAREST,
+//     )
+//     .unwrap();
 
-    img
-}
+//     img
+// }
 
-impl WebcamCapture {
+impl WebcamFaceCapture {
     pub fn new(app: &App, device_index: i32) -> Self {
         let capture = videoio::VideoCapture::new(device_index, videoio::CAP_ANY).unwrap();
         let cam_frame_mat = Mat::default();
@@ -65,42 +70,36 @@ impl WebcamCapture {
         let lbp_face_cascade =
             objdetect::CascadeClassifier::new(cascade_path.to_str().unwrap()).unwrap();
 
-        WebcamCapture {
+        let image_temp_path = tempfile::Builder::new()
+            .suffix(".png")
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
+
+        WebcamFaceCapture {
             capture,
             cam_frame_mat,
-            image_textures: None,
             lbp_face_cascade,
+            image_temp_path,
         }
     }
 
-    pub fn read_image(&mut self, app: &App) {
+    pub fn read_image(&mut self) -> Option<image::DynamicImage> {
         self.capture.read(&mut self.cam_frame_mat).unwrap();
 
-        let pixelated_faces = detect_faces(&self.cam_frame_mat, &mut self.lbp_face_cascade)
-            .into_iter()
-            .map(|face| pixelate(face))
-            .map(|face| {
-                let image_file_path = tempfile::Builder::new()
-                    .suffix(".png")
-                    .tempfile()
-                    .unwrap()
-                    .into_temp_path();
+        let faces = detect_faces(&self.cam_frame_mat, &mut self.lbp_face_cascade);
 
-                imgcodecs::imwrite(image_file_path.to_str().unwrap(), &face, &Vector::new())
-                    .expect("Failed to write temp file");
+        if faces.len() > 0 {
+            imgcodecs::imwrite(
+                &self.image_temp_path.to_str().unwrap(),
+                &faces[random_range(0, faces.len())],
+                &Vector::new(),
+            )
+            .expect("Failed to write temp file");
 
-                image_file_path
-            })
-            .map(|file_path| {
-                wgpu::Texture::from_path(app, file_path)
-                    .expect("Unable to read temp file")
-            })
-            .collect();
+            return Some(image::open(&self.image_temp_path).unwrap());
+        }
 
-        self.image_textures = Some(pixelated_faces);
-    }
-
-    pub fn get_texture(&self) -> &Option<Vec<wgpu::Texture>> {
-        &self.image_textures
+        None
     }
 }

@@ -1,8 +1,11 @@
-use nannou::prelude::*;
+use nannou::{
+    image,
+    prelude::*,
+};
 
-pub fn get_skyline_texture(app: &App) -> wgpu::Texture {
+pub fn get_skyline_image(app: &App) -> image::DynamicImage {
     let assets = app.assets_path().unwrap();
-    let img_path = assets.join("greyscale-skyline.jpg");
+    let img_path = assets.join("skyline.jpg");
 
-    wgpu::Texture::from_path(app, img_path).unwrap()
+    image::open(img_path).unwrap()
 }
