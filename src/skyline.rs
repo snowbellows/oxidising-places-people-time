@@ -1,7 +1,4 @@
-use nannou::{
-    image,
-    prelude::*,
-};
+use nannou::{image, prelude::*};
 
 pub fn get_skyline_image(app: &App) -> image::DynamicImage {
     let assets = app.assets_path().unwrap();

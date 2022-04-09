@@ -8,16 +8,51 @@ use crate::utils::map_rng_range;
 
 #[derive(Clone)]
 pub struct RustPatch {
+    colour: Hsla,
     position: Point2,
     size: f32,
     max_size: f32,
     points: Vec<Vec2>,
     noise_z: f64,
     opacity: f32,
+    creation_time: f32,
 }
 
 impl RustPatch {
-    pub fn new_rand<T>(rng: &mut T, window_rect: &Rect, max_size: f32) -> Self
+    fn new(
+        colour: Hsla,
+        position: Vec2,
+        start_size: f32,
+        max_size: f32,
+        noise_z: f64,
+        creation_time: f32,
+    ) -> Self {
+        let ellipse: Vec<Vec2> = geom::Ellipse::new(geom::Rect::from_wh(vec2(1.0, 1.0)), 20.0)
+            .circumference()
+            .into_iter()
+            .map(|[x, y]| vec2(x, y))
+            .collect();
+
+        RustPatch {
+            colour,
+            position,
+            size: start_size,
+            max_size,
+            points: ellipse,
+            noise_z,
+            opacity: 1.0,
+            creation_time,
+        }
+    }
+
+    pub fn new_rand<T>(
+        rng: &mut T,
+        window_rect: &Rect,
+        start_size: f32,
+        max_size: f32,
+        creation_time: f32,
+        colour: Hsla,
+    ) -> Self
     where
         T: RngCore,
     {
@@ -26,26 +61,30 @@ impl RustPatch {
             map_rng_range(rng.next_u32(), window_rect.bottom(), window_rect.top()),
         );
 
-        let ellipse: Vec<Vec2> =
-            geom::Ellipse::new(geom::Rect::from_wh(vec2(1.0, 1.0)), max_size * 2.0)
-                .circumference()
-                .into_iter()
-                .map(|[x, y]| vec2(x, y))
-                .collect();
-
         let noise_z = map_rng_range(rng.next_u32(), 0.0, 100.0);
 
-        RustPatch {
+        Self::new(
+            colour,
             position,
-            size: 1.0,
+            start_size,
             max_size,
-            points: ellipse,
             noise_z,
-            opacity: 1.0,
-        }
+            creation_time,
+        )
     }
 
-    pub fn update(&mut self, perlin: Perlin, frequency: f32, amplitude: f32) {
+    pub fn new_from_ref(ref_patch: &RustPatch, colour: Hsla, creation_time: f32) -> Self {
+        RustPatch::new(
+            colour,
+            ref_patch.position,
+            1.0,
+            ref_patch.max_size,
+            ref_patch.noise_z + 10.0,
+            creation_time,
+        )
+    }
+
+    pub fn update(&mut self, perlin: Perlin, frequency: f32, amplitude: f32, time: f32) {
         self.noise_z += 0.003;
 
         let noise_val = 0.5 + perlin.get([self.x() as f64, self.y() as f64, 100.0]) as f32;
@@ -63,7 +102,7 @@ impl RustPatch {
                 (y * frequency) as f64,
                 (self.noise_z + (xx + yy) as f64) * frequency as f64,
             ];
-            let variance = (perlin.get(noise_point) as f32) * amplitude / 10.0;
+            let variance = (perlin.get(noise_point) as f32) * amplitude;
 
             *point += vec2(x * variance, y * variance);
         }
@@ -72,12 +111,12 @@ impl RustPatch {
         self.size = if self.size < 1.0 {
             1.0
         } else if self.size <= self.max_size {
-            // Grow to full size over two minutes
-            self.size() + self.max_size / (60.0 * 60.0 * 2.0)
+            // Grow to full size over 1 min
+            self.max_size * (time - self.creation_time) / 60.0
         } else {
             // Start fading out
             self.opacity -= 0.002;
-            self.max_size
+            self.size
         };
 
         // After fading out reset
@@ -99,6 +138,19 @@ impl RustPatch {
         self.size
     }
 
+    pub fn overlap_colour(&self, position: &Vec2) -> Option<Hsla> {
+        let plotted_points = self.points.iter().map(|p|
+                // Map points to correct size, smallest first
+                *p * self.size
+                // Position it correctly
+                + self.position);
+        if let Some(_) = geom::Polygon::new(plotted_points).contains(position) {
+            return Some(self.colour.clone());
+        }
+
+        None
+    }
+
     pub fn draw(&self, draw: &Draw, colours: &[Hsla]) {
         for (i, colour) in colours.iter().enumerate() {
             let faded_colour = hsla(
@@ -108,7 +160,7 @@ impl RustPatch {
                 colour.alpha * self.opacity,
             );
             draw.x_y(self.x(), self.y())
-                .scale(self.size / (i as f32 + 1.0))
+                .scale(self.size / dbg!(colours.len() - i) as f32)
                 .polygon()
                 .color(faded_colour)
                 .points(self.points.clone());

@@ -28,7 +28,7 @@ fn detect_faces(img: &Mat, f_cascade: &mut objdetect::CascadeClassifier) -> Vec<
         .iter()
         .filter_map(|rect| {
             let padded_rect = rect + Size_::<i32>::new(rect.width / 2, rect.height / 2)
-                - Point_::<i32>::new(rect.width /( 2 * 2), rect.height / (2 * 2));
+                - Point_::<i32>::new(rect.width / (2 * 2), rect.height / (2 * 2));
 
             Mat::roi(img, padded_rect).ok()
         })

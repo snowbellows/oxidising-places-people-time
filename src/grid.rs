@@ -1,13 +1,26 @@
 use nannou::{
+    color::blend::Blend,
     image::{self, GenericImageView},
     prelude::*,
 };
 
 #[derive(Debug)]
 pub struct Cell {
-    position: Vec2,
-    colour: Hsla,
+    pub position: Vec2,
+    pub colour: Hsla,
+    pub original_colour: Hsla,
+    finished: bool,
     scale: f32,
+}
+
+impl Cell {
+    pub fn x(&self) -> f32 {
+        self.position.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.position.y
+    }
 }
 
 pub struct ImageGrid {
@@ -20,8 +33,7 @@ impl ImageGrid {
     pub fn new(size_rect: &Rect, cell_size: u32, base_image: &image::DynamicImage) -> Self {
         let grid_width = size_rect.w() as u32 / cell_size;
         let grid_height = size_rect.h() as u32 / cell_size;
-
-        let cells = (0..grid_width)
+        let cells: Vec<Vec<Cell>> = (0..grid_width)
             .map(|grid_x| {
                 (0..grid_height)
                     .map(move |grid_y| {
@@ -41,14 +53,14 @@ impl ImageGrid {
                         let green = base_colour[1] as f32 / 255.0;
                         let blue = base_colour[2] as f32 / 255.0;
 
-                        let scale = red * 0.222 + green * 0.707 + blue * 0.071;
-
-                        let colour = srgba(red, green, blue, 1.0).into();
+                        let colour: Hsla = srgba(red, green, blue, 1.0).into();
 
                         Cell {
                             position: vec2(pos_x, pos_y),
                             colour,
-                            scale,
+                            original_colour: colour,
+                            finished: false,
+                            scale: 1.0 - colour.lightness,
                         }
                     })
                     .collect()
@@ -63,20 +75,18 @@ impl ImageGrid {
     }
 
     pub fn draw(&self, draw: &Draw, scale_factor: f32) {
-        for column in &self.cells {
-            for cell in column {
-                let w = map_range(
-                    cell.scale,
-                    0.0,
-                    1.0,
-                    self.cell_size as f32 * scale_factor,
-                    0.0,
-                );
-                draw.ellipse()
-                    .x_y(cell.position.x, cell.position.y)
-                    .w_h(w, w)
-                    .color(cell.colour);
-            }
+        for cell in self.cells.iter().flatten() {
+            let w = map_range(
+                cell.scale,
+                0.0,
+                1.0,
+                0.0,
+                self.cell_size as f32 * scale_factor,
+            );
+            draw.x_y(cell.x(), cell.y())
+                .ellipse()
+                .w_h(w, w)
+                .color(cell.colour);
         }
     }
 
@@ -108,12 +118,40 @@ impl ImageGrid {
                 let green = base_colour[1] as f32 / 255.0;
                 let blue = base_colour[2] as f32 / 255.0;
 
-                let scale = red * 0.222 + green * 0.707 + blue * 0.071;
-
-                let colour = srgba(red, green, blue, 1.0).into();
+                let colour: Hsla = srgba(red, green, blue, 1.0).into();
 
                 cell.colour = colour; //Gradient::new([cell.colour, colour]).get(0.5);
-                cell.scale = (cell.scale + scale) / 2.0;
+                cell.original_colour = colour;
+                cell.scale = (cell.scale + 1.0 - colour.lightness) / 2.0;
+            }
+        }
+    }
+
+    pub fn add_cell_colours<F>(&mut self, func: F)
+    where
+        F: Fn(&Cell) -> Option<Hsla>,
+    {
+        for cell in self.cells.iter_mut().flatten().filter(|c| !c.finished) {
+            if let Some(new_colour) = func(&cell) {
+                // cell.colour.hue = new_colour.hue;
+                // cell.colour.saturation += new_colour.saturation / 10.0;
+                // cell.colour.lightness += new_colour.lightness / 10.0;
+                // new_colour.hue += random_range(-10.0, 10.0);
+
+                cell.colour = new_colour;
+                cell.colour.hue += random_range(-10.0, 10.0);
+                cell.colour.saturation += random_range(-0.1, 0.1);
+                cell.colour.lightness += random_range(-0.1, 0.1);
+
+                cell.finished = true;
+
+                // cell.colour =  LinSrgba::from(cell.original_colour).overlay(new_colour.into()).into();
+                // cell.colour =  LinSrgba::from(new_colour).overlay(cell.original_colour.into()).into();
+
+                // cell.colour =  LinSrgba::from(new_colour).multiply(cell.original_colour.into()).into(); // Option 1
+                // cell.colour =  LinSrgba::from(cell.original_colour).overlay(new_colour.into()).into(); // Option 2
+                // cell.colour = new_colour;
+                // cell.scale = 1.0 - cell.colour.lightness;
             }
         }
     }
