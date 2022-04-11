@@ -91,7 +91,9 @@ impl ImageGrid {
     }
 
     pub fn add_image_centre(&mut self, image: &image::DynamicImage, size: Vec2) {
-        let image_rect = Rect::from_wh(size).middle_of(self.size_rect);
+        let image_rect = Rect::from_wh(size)
+            .middle_of(self.size_rect)
+            .shift(vec2(random_range(-100.0, 100.0), random_range(-100.0, 100.0)));
 
         let mut centre: Vec<Vec<&mut Cell>> = self
             .cells
@@ -120,9 +122,9 @@ impl ImageGrid {
 
                 let colour: Hsla = srgba(red, green, blue, 1.0).into();
 
-                cell.colour = colour; //Gradient::new([cell.colour, colour]).get(0.5);
-                cell.original_colour = colour;
-                cell.scale = (cell.scale + 1.0 - colour.lightness) / 2.0;
+                // cell.colour = colour; //Gradient::new([cell.colour, colour]).get(0.5);
+                // cell.original_colour = colour;
+                cell.scale = 1.0 - colour.lightness;
             }
         }
     }

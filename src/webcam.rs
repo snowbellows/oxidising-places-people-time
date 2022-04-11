@@ -1,6 +1,8 @@
 use nannou::{image, prelude::*};
 use opencv::{core::*, imgcodecs, imgproc, objdetect, prelude::*, videoio};
 
+use crate::utils;
+
 pub struct WebcamFaceCapture {
     capture: videoio::VideoCapture,
     cam_frame_mat: Mat,
@@ -35,6 +37,20 @@ fn detect_faces(img: &Mat, f_cascade: &mut objdetect::CascadeClassifier) -> Vec<
         .collect()
 }
 
+pub fn dynamic_image_to_mat(image: image::DynamicImage) -> Mat {
+    let frame = image.into_rgb8().into_flat_samples();
+
+    unsafe {
+        Mat::new_rows_cols_with_data(
+            frame.layout.height.try_into().unwrap(),
+            frame.layout.width.try_into().unwrap(),
+            CV_8UC3,
+            frame.samples[0] as *mut std::ffi::c_void,
+            frame.layout.channel_stride,
+        )
+        .unwrap()
+    }
+}
 // fn pixelate(mut img: Mat) -> Mat {
 //     imgproc::resize(
 //         &img.clone(),
@@ -84,7 +100,7 @@ impl WebcamFaceCapture {
         }
     }
 
-    pub fn read_image(&mut self) -> Option<image::DynamicImage> {
+    pub fn read_image(&mut self, app: &App) -> Option<image::DynamicImage> {
         self.capture.read(&mut self.cam_frame_mat).unwrap();
 
         let faces = detect_faces(&self.cam_frame_mat, &mut self.lbp_face_cascade);
@@ -98,6 +114,24 @@ impl WebcamFaceCapture {
             .expect("Failed to write temp file");
 
             return Some(image::open(&self.image_temp_path).unwrap());
+        } else {
+            let image_path =
+                utils::random_image_from_folder(app.assets_path().unwrap().join("faces"))
+                    .unwrap();
+
+            let mat = imgcodecs::imread(image_path.to_str().unwrap(), imgcodecs::IMREAD_COLOR).unwrap();
+            let faces = detect_faces(&mat, &mut self.lbp_face_cascade);
+
+            if faces.len() > 0 {
+                imgcodecs::imwrite(
+                    &self.image_temp_path.to_str().unwrap(),
+                    &faces[random_range(0, faces.len())],
+                    &Vector::new(),
+                )
+                .expect("Failed to write temp file");
+
+                return Some(image::open(&self.image_temp_path).unwrap());
+            }
         }
 
         None

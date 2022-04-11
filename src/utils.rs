@@ -1,4 +1,7 @@
-use nannou::prelude::*;
+use nannou::{image, prelude::*};
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 pub fn map_rng_range<X, Y>(value: X, out_min: Y, out_max: Y) -> Y
 where
@@ -18,4 +21,26 @@ pub fn draw_texture_fullscreen(app: &App, draw: &Draw, texture: &wgpu::Texture) 
         )
     });
     draw.polygon().points_textured(&texture, points);
+}
+
+pub fn random_image_from_folder<P>(path: P) -> io::Result<PathBuf>
+where
+    P: AsRef<Path>,
+{
+    let paths: Vec<PathBuf> = fs::read_dir(&path)?
+        .into_iter()
+        .map(|entry| entry.unwrap())
+        .filter_map(|entry| {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    return Some(entry.path());
+                }
+            }
+
+            None
+        })
+        .collect();
+
+     Ok(path.as_ref().join(&paths[random_range(0, paths.len())]))
+
 }

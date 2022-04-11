@@ -2,7 +2,6 @@
 extern crate lazy_static;
 
 use nannou::{
-    image,
     noise::{Perlin, Seedable},
     prelude::*,
     rand::SeedableRng,
@@ -10,7 +9,8 @@ use nannou::{
     text::font::default_notosans,
 };
 use oxidising_places_people_time::{
-    grid::ImageGrid, rust_patches::RustPatch, skyline, webcam::WebcamFaceCapture,
+    background::get_background_image, grid::ImageGrid, rust_patches::RustPatch,
+    webcam::WebcamFaceCapture,
 };
 use rand_chacha::ChaCha8Rng;
 
@@ -18,8 +18,8 @@ const RNG_SEED: u32 = 3452392;
 const FREQUENCY: f32 = 2.0;
 const AMPLITUDE: f32 = 0.003;
 
-const START_NUM_RUST_PATCHES: usize = 10;
-const NEXT_NUM_RUST_PATCHES: usize = 10;
+const START_NUM_RUST_PATCHES: usize = 15;
+const NEXT_NUM_RUST_PATCHES: usize = 7;
 const PATCH_SIZE: f32 = 1000.0;
 
 const CELL_SIZE: u32 = 12;
@@ -36,7 +36,6 @@ struct Model {
     window_id: WindowId,
     fullscreen: bool,
     image_grid: ImageGrid,
-    skyline_image: image::DynamicImage,
     rust_patches: Vec<RustPatch>,
     perlin: Perlin,
     rng: ChaCha8Rng,
@@ -58,17 +57,17 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
 
-    let skyline_image = skyline::get_skyline_image(app);
-
     let rng = ChaCha8Rng::seed_from_u64(RNG_SEED as u64);
 
-    let image_grid = ImageGrid::new(&app.window_rect(), CELL_SIZE, &skyline_image);
+    let background_image = get_background_image(app);
+
+    let image_grid = ImageGrid::new(&app.window_rect(), CELL_SIZE, &background_image);
     let rust_patches: Vec<RustPatch> =
         Vec::with_capacity(START_NUM_RUST_PATCHES + NEXT_NUM_RUST_PATCHES);
 
     let perlin = Perlin::new().set_seed(RNG_SEED);
 
-    let cam = WebcamFaceCapture::new(app, 0);
+    let cam = WebcamFaceCapture::new(app, 2);
 
     let assets = app.assets_path().unwrap();
     let font_path = assets.join("opensans.ttf");
@@ -78,7 +77,6 @@ fn model(app: &App) -> Model {
         window_id,
         fullscreen: false,
         image_grid,
-        skyline_image,
         rust_patches,
         perlin,
         rng,
@@ -153,12 +151,17 @@ fn view(app: &App, model: &Model, frame: Frame) {
 }
 
 fn reset_model(model: &mut Model, app: &App, window_rect: Rect) {
-    model.image_grid = ImageGrid::new(&window_rect, CELL_SIZE, &model.skyline_image);
+    let background_image = get_background_image(app);
 
-    if let Some(face) = model.cam.read_image() {
+    model.image_grid = ImageGrid::new(&window_rect, CELL_SIZE, &background_image);
+
+    if let Some(face) = model.cam.read_image(app) {
         model.image_grid.add_image_centre(
             &face,
-            vec2(window_rect.h() * 0.66 * 0.88, window_rect.h() * 0.66),
+            vec2(
+                window_rect.h() * 0.66 * 0.88 * random_range(0.9, 1.1),
+                window_rect.h() * 0.66 * random_range(0.9, 1.1),
+            ),
         )
     }
 
@@ -167,17 +170,18 @@ fn reset_model(model: &mut Model, app: &App, window_rect: Rect) {
         let patch = RustPatch::new_rand(
             &mut model.rng,
             &window_rect,
-            2.0,
+            5.0,
             PATCH_SIZE / 2.0,
             app.time,
             *RED_BROWN,
         );
         model.rust_patches.push(patch);
-        for i in 0..NEXT_NUM_RUST_PATCHES {
-            let ref_patch = &model.rust_patches
-                [map_range(i, 0, NEXT_NUM_RUST_PATCHES, 0, START_NUM_RUST_PATCHES)];
-            let patch = RustPatch::new_from_ref(ref_patch, *ORANGE, app.time);
-            model.rust_patches.push(patch);
-        }
+    }
+
+    for i in 0..NEXT_NUM_RUST_PATCHES {
+        let ref_patch =
+            &model.rust_patches[map_range(i, 0, NEXT_NUM_RUST_PATCHES, 0, START_NUM_RUST_PATCHES)];
+        let patch = RustPatch::new_from_ref(ref_patch, *ORANGE, app.time);
+        model.rust_patches.push(patch);
     }
 }
