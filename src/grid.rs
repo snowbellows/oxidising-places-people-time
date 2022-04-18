@@ -1,25 +1,21 @@
 use nannou::{
-    color::blend::Blend,
     image::{self, GenericImageView},
     prelude::*,
 };
+
+use crate::utils::pixel_to_hsla;
 
 #[derive(Debug)]
 pub struct Cell {
     pub position: Vec2,
     pub colour: Hsla,
-    pub original_colour: Hsla,
     finished: bool,
     scale: f32,
 }
 
 impl Cell {
-    pub fn x(&self) -> f32 {
-        self.position.x
-    }
-
-    pub fn y(&self) -> f32 {
-        self.position.y
+    pub fn finished(&mut self) {
+        self.finished = true;
     }
 }
 
@@ -44,21 +40,16 @@ impl ImageGrid {
                             - (cell_size * grid_y) as f32
                             - (cell_size as f32 / 2.0);
 
-                        let base_colour = base_image.get_pixel(
+                        let pixel = base_image.get_pixel(
                             base_image.width() / grid_width * grid_x,
                             base_image.height() / grid_height * grid_y,
                         );
 
-                        let red = base_colour[0] as f32 / 255.0;
-                        let green = base_colour[1] as f32 / 255.0;
-                        let blue = base_colour[2] as f32 / 255.0;
-
-                        let colour: Hsla = srgba(red, green, blue, 1.0).into();
+                        let colour = pixel_to_hsla(pixel);
 
                         Cell {
                             position: vec2(pos_x, pos_y),
                             colour,
-                            original_colour: colour,
                             finished: false,
                             scale: 1.0 - colour.lightness,
                         }
@@ -83,7 +74,7 @@ impl ImageGrid {
                 0.0,
                 self.cell_size as f32 * scale_factor,
             );
-            draw.x_y(cell.x(), cell.y())
+            draw.xy(cell.position)
                 .ellipse()
                 .w_h(w, w)
                 .color(cell.colour);
@@ -91,9 +82,10 @@ impl ImageGrid {
     }
 
     pub fn add_image_centre(&mut self, image: &image::DynamicImage, size: Vec2) {
-        let image_rect = Rect::from_wh(size)
-            .middle_of(self.size_rect)
-            .shift(vec2(random_range(-100.0, 100.0), random_range(-100.0, 100.0)));
+        let image_rect = Rect::from_wh(size).middle_of(self.size_rect).shift(vec2(
+            random_range(-100.0, 100.0),
+            random_range(-100.0, 100.0),
+        ));
 
         let mut centre: Vec<Vec<&mut Cell>> = self
             .cells
@@ -111,50 +103,19 @@ impl ImageGrid {
 
         for (x, column) in centre.iter_mut().enumerate() {
             for (y, cell) in column.iter_mut().enumerate() {
-                let base_colour = image.get_pixel(
+                let pixel = image.get_pixel(
                     map_range(x, 0, width, 0, image.width() - 1),
                     map_range(y, 0, height, 0, image.height() - 1),
                 );
 
-                let red = base_colour[0] as f32 / 255.0;
-                let green = base_colour[1] as f32 / 255.0;
-                let blue = base_colour[2] as f32 / 255.0;
+                let colour = pixel_to_hsla(pixel);
 
-                let colour: Hsla = srgba(red, green, blue, 1.0).into();
-
-                // cell.colour = colour; //Gradient::new([cell.colour, colour]).get(0.5);
-                // cell.original_colour = colour;
                 cell.scale = 1.0 - colour.lightness;
             }
         }
     }
 
-    pub fn add_cell_colours<F>(&mut self, func: F)
-    where
-        F: Fn(&Cell) -> Option<Hsla>,
-    {
-        for cell in self.cells.iter_mut().flatten().filter(|c| !c.finished) {
-            if let Some(new_colour) = func(&cell) {
-                // cell.colour.hue = new_colour.hue;
-                // cell.colour.saturation += new_colour.saturation / 10.0;
-                // cell.colour.lightness += new_colour.lightness / 10.0;
-                // new_colour.hue += random_range(-10.0, 10.0);
-
-                cell.colour = new_colour;
-                cell.colour.hue += random_range(-10.0, 10.0);
-                cell.colour.saturation += random_range(-0.1, 0.1);
-                cell.colour.lightness += random_range(-0.1, 0.1);
-
-                cell.finished = true;
-
-                // cell.colour =  LinSrgba::from(cell.original_colour).overlay(new_colour.into()).into();
-                // cell.colour =  LinSrgba::from(new_colour).overlay(cell.original_colour.into()).into();
-
-                // cell.colour =  LinSrgba::from(new_colour).multiply(cell.original_colour.into()).into(); // Option 1
-                // cell.colour =  LinSrgba::from(cell.original_colour).overlay(new_colour.into()).into(); // Option 2
-                // cell.colour = new_colour;
-                // cell.scale = 1.0 - cell.colour.lightness;
-            }
-        }
+    pub fn iter_mut_cells(&mut self) -> impl Iterator<Item = &mut Cell> {
+        self.cells.iter_mut().flatten().filter(|c| !c.finished)
     }
 }

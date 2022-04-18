@@ -37,43 +37,6 @@ fn detect_faces(img: &Mat, f_cascade: &mut objdetect::CascadeClassifier) -> Vec<
         .collect()
 }
 
-pub fn dynamic_image_to_mat(image: image::DynamicImage) -> Mat {
-    let frame = image.into_rgb8().into_flat_samples();
-
-    unsafe {
-        Mat::new_rows_cols_with_data(
-            frame.layout.height.try_into().unwrap(),
-            frame.layout.width.try_into().unwrap(),
-            CV_8UC3,
-            frame.samples[0] as *mut std::ffi::c_void,
-            frame.layout.channel_stride,
-        )
-        .unwrap()
-    }
-}
-// fn pixelate(mut img: Mat) -> Mat {
-//     imgproc::resize(
-//         &img.clone(),
-//         &mut img,
-//         Size::new(16, 18),
-//         0.0,
-//         0.0,
-//         imgproc::INTER_LINEAR,
-//     )
-//     .unwrap();
-
-//     imgproc::resize(
-//         &img.clone(),
-//         &mut img,
-//         Size::new(640, 720),
-//         0.0,
-//         0.0,
-//         imgproc::INTER_NEAREST,
-//     )
-//     .unwrap();
-
-//     img
-// }
 
 impl WebcamFaceCapture {
     pub fn new(app: &App, device_index: i32) -> Self {
@@ -101,6 +64,7 @@ impl WebcamFaceCapture {
     }
 
     pub fn read_image(&mut self, app: &App) -> Option<image::DynamicImage> {
+        self.cam_frame_mat.clear();
         self.capture.read(&mut self.cam_frame_mat).unwrap();
 
         let faces = detect_faces(&self.cam_frame_mat, &mut self.lbp_face_cascade);

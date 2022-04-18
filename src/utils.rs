@@ -1,4 +1,4 @@
-use nannou::{image, prelude::*};
+use nannou::{prelude::*, image};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -9,18 +9,6 @@ where
     Y: NumCast,
 {
     map_range(value, X::min_value(), X::max_value(), out_min, out_max)
-}
-
-pub fn draw_texture_fullscreen(app: &App, draw: &Draw, texture: &wgpu::Texture) {
-    let window_id = app.window_id();
-    let win_rect = app.window(window_id).unwrap().rect();
-    let points = win_rect.corners_iter().map(|q| {
-        (
-            Point2::from(q),
-            pt2(q[0] / win_rect.w() + 0.5, 1.0 - (q[1] / win_rect.h() + 0.5)),
-        )
-    });
-    draw.polygon().points_textured(&texture, points);
 }
 
 pub fn random_image_from_folder<P>(path: P) -> io::Result<PathBuf>
@@ -43,4 +31,13 @@ where
 
      Ok(path.as_ref().join(&paths[random_range(0, paths.len())]))
 
+}
+
+pub fn pixel_to_hsla(pixel: image::Rgba<u8>) -> Hsla {
+
+    let red = pixel[0] as f32 / 255.0;
+    let green = pixel[1] as f32 / 255.0;
+    let blue = pixel[2] as f32 / 255.0;
+
+    srgba(red, green, blue, 1.0).into()
 }

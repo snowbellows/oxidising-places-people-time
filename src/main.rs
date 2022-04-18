@@ -4,10 +4,11 @@ extern crate lazy_static;
 use nannou::{
     noise::{Perlin, Seedable},
     prelude::*,
-    rand::SeedableRng,
-    text::font,
-    text::font::default_notosans,
+    rand::SeedableRng
+    // text::font,
 };
+use itertools::Itertools;
+use itertools::FoldWhile::{Continue, Done};
 use oxidising_places_people_time::{
     background::get_background_image, grid::ImageGrid, rust_patches::RustPatch,
     webcam::WebcamFaceCapture,
@@ -40,8 +41,6 @@ struct Model {
     perlin: Perlin,
     rng: ChaCha8Rng,
     cam: WebcamFaceCapture,
-    font: text::Font,
-    next_patch_index: usize,
 }
 
 fn main() {
@@ -69,9 +68,8 @@ fn model(app: &App) -> Model {
 
     let cam = WebcamFaceCapture::new(app, 2);
 
-    let assets = app.assets_path().unwrap();
-    let font_path = assets.join("opensans.ttf");
-    let font = font::from_file(font_path).unwrap();
+    // let font_path = app.assets_path().unwrap().join("opensans.ttf");
+    // let font = font::from_file(font_path).unwrap();
 
     Model {
         window_id,
@@ -81,8 +79,6 @@ fn model(app: &App) -> Model {
         perlin,
         rng,
         cam,
-        font,
-        next_patch_index: 0,
     }
 }
 
@@ -116,15 +112,24 @@ fn update(app: &App, model: &mut Model, _update: Update) {
             patch.update(model.perlin, FREQUENCY, AMPLITUDE, app.time);
         }
 
-        // add rust patch to grid
-        model.image_grid.add_cell_colours(|c| {
-            model.rust_patches.iter().fold(None, |acc, patch| {
-                patch
-                    .overlap_colour(&c.position)
-                    .filter(|colour| colour != &c.colour)
-                    .or(acc)
-            })
-        })
+        // Add rust patch to grid
+        for cell in model.image_grid.iter_mut_cells() {
+           let overlap_colour: Option<Hsla> = model.rust_patches.iter().fold_while(None, |acc, patch| {
+                if patch.contains(&cell.position) {
+                    return Done(Some(patch.colour().clone()))
+                }
+                Continue(acc)
+            }).into_inner();
+            if let Some(colour) = overlap_colour {
+
+                cell.colour = colour;
+                cell.colour.hue += random_range(-10.0, 10.0);
+                cell.colour.saturation += random_range(-0.1, 0.1);
+                cell.colour.lightness += random_range(-0.1, 0.1);
+    
+                cell.finished();
+            }
+        }
     }
 }
 
@@ -132,20 +137,15 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
     frame.clear(WHITE);
 
-    // for patch in &model.rust_patches {
-    //     patch.draw(&draw, COLOURS.as_slice())
-    // }
-
     model.image_grid.draw(&draw, GRID_SCALE_FACTOR);
-    let frame_rate_text = format!("FPS: {}\nTime: {}", app.fps(), app.time);
-    draw.text(&frame_rate_text)
-        .w(app.window_rect().w())
-        .font_size(40)
-        .font(model.font.clone())
-        .left_justify()
-        .color(GREENYELLOW)
-        .font(default_notosans())
-        .y(10.0);
+    // let frame_rate_text = format!("FPS: {}\nTime: {}", app.fps(), app.time);
+    // draw.text(&frame_rate_text)
+    //     .w(app.window_rect().w())
+    //     .font_size(40)
+    //     .font(model.font.clone())
+    //     .left_justify()
+    //     .color(GREENYELLOW)
+    //     .y(10.0);
 
     draw.to_frame(app, &frame).unwrap();
 }

@@ -14,7 +14,6 @@ pub struct RustPatch {
     max_size: f32,
     points: Vec<Vec2>,
     noise_z: f64,
-    opacity: f32,
     creation_time: f32,
 }
 
@@ -40,7 +39,6 @@ impl RustPatch {
             max_size,
             points: ellipse,
             noise_z,
-            opacity: 1.0,
             creation_time,
         }
     }
@@ -87,11 +85,9 @@ impl RustPatch {
     pub fn update(&mut self, perlin: Perlin, frequency: f32, amplitude: f32, time: f32) {
         self.noise_z += 0.003;
 
-        let noise_val = 0.5 + perlin.get([self.x() as f64, self.y() as f64, 100.0]) as f32;
+        let noise_val = 0.5 + perlin.get([self.position.x as f64, self.position.y as f64, 100.0]) as f32;
 
         let amplitude = amplitude + (amplitude * noise_val);
-
-        let (xx, yy) = (self.x(), self.y());
 
         // Update points
         for point in &mut self.points {
@@ -100,7 +96,7 @@ impl RustPatch {
             let noise_point = [
                 (x * frequency) as f64,
                 (y * frequency) as f64,
-                (self.noise_z + (xx + yy) as f64) * frequency as f64,
+                (self.noise_z + (self.position.x + self.position.y) as f64) * frequency as f64,
             ];
             let variance = (perlin.get(noise_point) as f32) * amplitude;
 
@@ -108,62 +104,28 @@ impl RustPatch {
         }
 
         // Update size
-        self.size = if self.size < 1.0 {
-            1.0
+        if self.size < 1.0 {
+            self.size = 1.0
         } else if self.size <= self.max_size {
             // Grow to full size over 1 min
-            self.max_size * (time - self.creation_time) / 60.0
-        } else {
-            // Start fading out
-            self.opacity -= 0.002;
-            self.size
-        };
-
-        // After fading out reset
-        if self.opacity <= 0.0 {
-            self.opacity = 1.0;
-            self.size = 1.0;
-        };
+            self.size = self.max_size * (time - self.creation_time) / 60.0
+        }
     }
 
-    pub fn x(&self) -> f32 {
-        self.position.x
+    pub fn colour(&self) -> &Hsla {
+        &self.colour
     }
 
-    pub fn y(&self) -> f32 {
-        self.position.y
-    }
-
-    pub fn size(&self) -> f32 {
-        self.size
-    }
-
-    pub fn overlap_colour(&self, position: &Vec2) -> Option<Hsla> {
+    pub fn contains(&self, position: &Vec2) -> bool {
         let plotted_points = self.points.iter().map(|p|
-                // Map points to correct size, smallest first
-                *p * self.size
-                // Position it correctly
-                + self.position);
+            // Map points to correct size, smallest first
+            *p * self.size
+            // Position it correctly
+            + self.position);
         if let Some(_) = geom::Polygon::new(plotted_points).contains(position) {
-            return Some(self.colour.clone());
+            return true;
         }
 
-        None
-    }
-
-    pub fn draw(&self, draw: &Draw, colours: &[Hsla]) {
-        for (i, colour) in colours.iter().enumerate() {
-            let faded_colour = hsla(
-                colour.hue.to_positive_degrees() / 360.0,
-                colour.saturation,
-                colour.lightness,
-                colour.alpha * self.opacity,
-            );
-            draw.x_y(self.x(), self.y())
-                .scale(self.size / dbg!(colours.len() - i) as f32)
-                .polygon()
-                .color(faded_colour)
-                .points(self.points.clone());
-        }
+        false
     }
 }
