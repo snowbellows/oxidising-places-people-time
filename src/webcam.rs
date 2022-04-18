@@ -64,7 +64,6 @@ impl WebcamFaceCapture {
     }
 
     pub fn read_image(&mut self, app: &App) -> Option<image::DynamicImage> {
-        self.cam_frame_mat.clear();
         self.capture.read(&mut self.cam_frame_mat).unwrap();
 
         let faces = detect_faces(&self.cam_frame_mat, &mut self.lbp_face_cascade);
