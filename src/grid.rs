@@ -95,7 +95,7 @@ impl ImageGrid {
                     .filter(|c| image_rect.contains(c.position))
                     .collect()
             })
-            .filter(|vc: &Vec<&mut Cell>| vc.len() > 0)
+            .filter(|vc: &Vec<&mut Cell>| !vc.is_empty())
             .collect();
 
         let width = centre.len() - 1;

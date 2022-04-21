@@ -1,14 +1,13 @@
 #[macro_use]
 extern crate lazy_static;
 
+use itertools::FoldWhile::{Continue, Done};
+use itertools::Itertools;
 use nannou::{
     noise::{Perlin, Seedable},
     prelude::*,
-    rand::SeedableRng
-    // text::font,
+    rand::SeedableRng, // text::font,
 };
-use itertools::Itertools;
-use itertools::FoldWhile::{Continue, Done};
 use oxidising_places_people_time::{
     background::get_background_image, grid::ImageGrid, rust_patches::RustPatch,
     webcam::WebcamFaceCapture,
@@ -100,12 +99,9 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) {
 
 fn update(app: &App, model: &mut Model, _update: Update) {
     let window_rect = app.window(model.window_id).unwrap().rect();
-    if app.elapsed_frames() == 0 {
-        // Have to call this here because camera isn't available until now
-        reset_model(model, &app, window_rect)
-    } else if (app.time % 60.0) <= 0.1 {
-        // Reset every minute
-        reset_model(model, &app, window_rect)
+    if app.elapsed_frames() == 0 || (app.time % 60.0) <= 0.1 {
+        // Call on start when camera available and reset every minute
+        reset_model(model, app, window_rect)
     } else {
         // Update patch size
         for patch in &mut model.rust_patches {
@@ -114,19 +110,22 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
         // Add rust patch to grid
         for cell in model.image_grid.iter_mut_cells() {
-           let overlap_colour: Option<Hsla> = model.rust_patches.iter().fold_while(None, |acc, patch| {
-                if patch.contains(&cell.position) {
-                    return Done(Some(patch.colour().clone()))
-                }
-                Continue(acc)
-            }).into_inner();
+            let overlap_colour: Option<Hsla> = model
+                .rust_patches
+                .iter()
+                .fold_while(None, |acc, patch| {
+                    if patch.contains(&cell.position) {
+                        return Done(Some(*patch.colour()));
+                    }
+                    Continue(acc)
+                })
+                .into_inner();
             if let Some(colour) = overlap_colour {
-
                 cell.colour = colour;
                 cell.colour.hue += random_range(-10.0, 10.0);
                 cell.colour.saturation += random_range(-0.1, 0.1);
                 cell.colour.lightness += random_range(-0.1, 0.1);
-    
+
                 cell.finished();
             }
         }

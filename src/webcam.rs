@@ -37,7 +37,6 @@ fn detect_faces(img: &Mat, f_cascade: &mut objdetect::CascadeClassifier) -> Vec<
         .collect()
 }
 
-
 impl WebcamFaceCapture {
     pub fn new(app: &App, device_index: i32) -> Self {
         let capture = videoio::VideoCapture::new(device_index, videoio::CAP_ANY).unwrap();
@@ -68,9 +67,9 @@ impl WebcamFaceCapture {
 
         let faces = detect_faces(&self.cam_frame_mat, &mut self.lbp_face_cascade);
 
-        if faces.len() > 0 {
+        if !faces.is_empty() {
             imgcodecs::imwrite(
-                &self.image_temp_path.to_str().unwrap(),
+                self.image_temp_path.to_str().unwrap(),
                 &faces[random_range(0, faces.len())],
                 &Vector::new(),
             )
@@ -79,15 +78,15 @@ impl WebcamFaceCapture {
             return Some(image::open(&self.image_temp_path).unwrap());
         } else {
             let image_path =
-                utils::random_image_from_folder(app.assets_path().unwrap().join("faces"))
-                    .unwrap();
+                utils::random_image_from_folder(app.assets_path().unwrap().join("faces")).unwrap();
 
-            let mat = imgcodecs::imread(image_path.to_str().unwrap(), imgcodecs::IMREAD_COLOR).unwrap();
+            let mat =
+                imgcodecs::imread(image_path.to_str().unwrap(), imgcodecs::IMREAD_COLOR).unwrap();
             let faces = detect_faces(&mat, &mut self.lbp_face_cascade);
 
-            if faces.len() > 0 {
+            if !faces.is_empty(){
                 imgcodecs::imwrite(
-                    &self.image_temp_path.to_str().unwrap(),
+                    self.image_temp_path.to_str().unwrap(),
                     &faces[random_range(0, faces.len())],
                     &Vector::new(),
                 )

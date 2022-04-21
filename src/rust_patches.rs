@@ -122,7 +122,7 @@ impl RustPatch {
             *p * self.size
             // Position it correctly
             + self.position);
-        if let Some(_) = geom::Polygon::new(plotted_points).contains(position) {
+        if geom::Polygon::new(plotted_points).contains(position).is_some() {
             return true;
         }
 
